@@ -1,0 +1,6 @@
+test
+tests/*.o
+tests/*.gcov
+tests/*.gcno
+tests/*.gcda
+.sconsign.dblite

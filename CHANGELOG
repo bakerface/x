@@ -1,0 +1,11 @@
+v1.0.0
+  - Added travis ci integration
+  - Added scons build files
+  - Added README
+  - Added tests/test.cpp as source for unit testing and code coverage
+  - Added include/x as header and implementation
+  - Added bump-version script to manage version in README and header
+  - Added setTimeout(function, instance, ticks) for static functions
+  - Added setTimeout<T, f>(instance, ticks) for member functions
+  - Added setup(void) as optional initializer
+  - Added loop(ticks) with binary heap as backend

@@ -1,0 +1,145 @@
+/**
+ * Copyright (c) 2015 Christopher M. Baker
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ */
+
+#ifndef X_H
+#define X_H
+
+#ifndef X_MAX_TIMERS
+#define X_MAX_TIMERS 16
+#endif
+
+#define X_VERSION_MAJOR 1
+#define X_VERSION_MINOR 0
+#define X_VERSION_BUILD 0
+
+namespace x {
+  typedef unsigned long timer_ticks_t;
+  typedef unsigned long timer_id_t;
+  typedef void (*timer_function_t)(void *instance);
+
+  namespace timer_details {
+    timer_ticks_t ticks[X_MAX_TIMERS] = { 0 };
+    timer_function_t functions[X_MAX_TIMERS] = { 0 };
+    void *instances[X_MAX_TIMERS] = { 0 };
+    timer_id_t count = 0;
+    timer_ticks_t clock = 0;
+
+    template <typename T, void (T::*f)(void)>
+    void toTimerFunction(void *argument) {
+      T *instance = (T *) argument;
+      (instance->*f)();
+    }
+
+    timer_id_t least(timer_id_t parent, timer_id_t child) {
+      if (child < count) {
+        if (ticks[child] < ticks[parent]) {
+          return child;
+        }
+      }
+
+      return parent;
+    }
+
+    timer_id_t least(timer_id_t parent, timer_id_t left, timer_id_t right) {
+      return least(least(parent, left), right);
+    }
+
+    void swap(timer_id_t a, timer_id_t b) {
+      timer_ticks_t t = ticks[a];
+      timer_function_t f = functions[a];
+      void *i = instances[a];
+
+      ticks[a] = ticks[b];
+      functions[a] = functions[b];
+      instances[a] = instances[b];
+
+      ticks[b] = t;
+      functions[b] = f;
+      instances[b] = i;
+    }
+
+    void bubbleDown(timer_id_t id) {
+      timer_id_t left = (id << 1) + 1;
+      timer_id_t right = (id << 1) + 2;
+      timer_id_t min = least(id, left, right);
+
+      if (id != min) {
+        swap(id, min);
+        bubbleDown(min);
+      }
+    }
+
+    void bubbleUp(timer_id_t id) {
+      timer_id_t parent = (id - 1) >> 1;
+
+      if (id > 0) {
+        if (ticks[id] < ticks[parent]) {
+          swap(id, parent);
+          bubbleUp(parent);
+        }
+      }
+    }
+  }
+
+  void setTimeout(timer_function_t f, void *instance, timer_ticks_t ticks) {
+    timer_id_t id = timer_details::count++;
+
+    timer_details::ticks[id] = timer_details::clock + ticks;
+    timer_details::functions[id] = f;
+    timer_details::instances[id] = instance;
+    timer_details::bubbleUp(id);
+  }
+  
+  template <typename T, void (T::*f)(void)>
+  void setTimeout(T *instance, timer_ticks_t ticks) {
+    setTimeout(timer_details::toTimerFunction<T, f>, instance, ticks);
+  }
+
+  void setup(void) {
+    timer_details::count = 0;
+    timer_details::clock = 0;
+  }
+
+  bool loop(timer_ticks_t ticks) {
+    timer_details::clock = ticks;
+
+    if (timer_details::count > 0) {
+      if (ticks < timer_details::ticks[0]) {
+        /* todo: sleep for idle time */
+      }
+      else {
+        timer_function_t f = timer_details::functions[0];
+        void *i = timer_details::instances[0];
+
+        timer_details::swap(0, --timer_details::count);
+        timer_details::bubbleDown(0);
+
+        f(i);
+      }
+    }
+
+    return timer_details::count > 0;
+  }
+}
+
+#endif /* X_H */

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+version="$1"
+IFS=. read -r major minor build <<< "$version"
+
+sed -i '' 's/\(#define X_VERSION_MAJOR\).*/\1 '$major'/' include/x
+sed -i '' 's/\(#define X_VERSION_MINOR\).*/\1 '$minor'/' include/x
+sed -i '' 's/\(#define X_VERSION_BUILD\).*/\1 '$build'/' include/x
+sed -i '' 's/version-.*-blue.svg/version-'$version'-blue.svg/g' README.md
